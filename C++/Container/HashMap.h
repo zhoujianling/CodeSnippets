@@ -1,5 +1,6 @@
 #include <functional>
 #include <algorithm>
+#include <vector>
 #include <assert.h>
 
 
@@ -13,41 +14,27 @@ struct Pair {
 template<typename K, typename V>
 struct HashNode {
     Pair<K, V> m_pair;
-    // K m_key;    
-    // V m_value;
+
     HashNode* m_next = nullptr;
-    bool m_occupied = false;
 };
+
+template<typename K, typename V>
+class HashMap;
 
 template<typename K, typename V>
 struct HashMapIterator {
 public:
-    HashMapIterator(HashNode<K, V>* curr, HashNode<K, V>* next_bucket);
+    HashMapIterator(HashNode<K, V>* curr, int next_bucket_index, HashMap<K, V>* map);
     Pair<K, V>& operator*();
     HashMapIterator<K, V>& operator++();
+    bool operator== (const HashMapIterator<K, V>& rhs) const;
+    bool operator!= (const HashMapIterator<K, V>& rhs) const;
 
     HashNode<K, V>* m_curr = nullptr;
-    HashNode<K, V>* m_next_bucket = nullptr;
+    int m_next_bucket_index = 0;
+private:
+    HashMap<K, V>* m_map = nullptr;
 };
-
-// -----------------------------
-template<typename K, typename V>
-HashMapIterator<K, V>::HashMapIterator(HashNode<K, V>* curr, HashNode<K, V>* next_bucket) {
-    m_curr = curr;
-    m_next_bucket = next_bucket; 
-}
-
-template<typename K, typename V>
-Pair<K, V>& HashMapIterator<K, V>::operator*() {
-    return m_curr->m_pair;
-}
-
-// template<typename K, typename V>
-// HashMapIterator<K, V>& HashMapIterator<K, V>::operator++() {
-//     if (m_curr->m_next) {
-
-//     }
-// }
 
 // -------------------------------------------------
 // 
@@ -55,6 +42,7 @@ Pair<K, V>& HashMapIterator<K, V>::operator*() {
 template<typename K, typename V>
 class HashMap {
     // int DEFAULT_CAPACITY = 10;
+    friend class HashMapIterator<K, V>;
 public:
     HashMap();
     ~HashMap();
@@ -62,6 +50,8 @@ public:
     V& operator[] (const K& k);
     void Rehash(int bucket_num);
     bool Erase(const K& k);
+    HashMapIterator<K, V> begin();
+    HashMapIterator<K, V> end();
 
 private:
     void ReleaseBuckets(HashNode<K, V>* buckets, int bucket_num);
@@ -69,17 +59,61 @@ private:
 private:
     HashNode<K, V>* m_buckets = nullptr;
     int m_capacity = 20;
+    std::vector<bool> m_occupys;
 };
 
 
 #pragma region TempImpl
+// -----------------------------
+template<typename K, typename V>
+HashMapIterator<K, V>::HashMapIterator(HashNode<K, V>* curr, int next_bucket_index,
+    HashMap<K, V>* map) {
+    m_curr = curr;
+    m_next_bucket_index = next_bucket_index; 
+    m_map = map;
+}
+
+template<typename K, typename V>
+Pair<K, V>& HashMapIterator<K, V>::operator*() {
+    return m_curr->m_pair;
+}
+
+template<typename K, typename V>
+HashMapIterator<K, V>& HashMapIterator<K, V>::operator++() {
+    if (m_curr->m_next) {
+        m_curr = m_curr->m_next;
+        return *this;
+    } else {
+        const auto bucket_num = m_map->m_capacity;
+        while (m_next_bucket_index < bucket_num && (!m_map->m_occupys[m_next_bucket_index])) {
+            ++m_next_bucket_index;
+        }
+        if (m_next_bucket_index == bucket_num) {
+            m_curr = nullptr;
+            return *this;
+        }
+        m_curr = m_map->m_buckets + m_next_bucket_index;
+        ++m_next_bucket_index;
+        return *this;
+    }
+}
+
+template<typename K, typename V>
+bool HashMapIterator<K, V>::operator== (const HashMapIterator<K, V>& rhs) const {
+    return m_map == rhs.m_map && m_curr == rhs.m_curr && 
+        m_next_bucket_index == rhs.m_next_bucket_index;
+}
+
+template<typename K, typename V>
+bool HashMapIterator<K, V>::operator!= (const HashMapIterator<K, V>& rhs) const {
+    return !(*this == rhs);
+}
+
 // --------------------------------------
 template<typename K, typename V>
 HashMap<K, V>::HashMap() {
-    // const v1 = (xxx1.isDirectory() ? 1 : 0);
-    // const v2 = (xxx2.isDirectory() ? 1 : 0);
-    // return v1 - v2;
     m_buckets = new HashNode<K, V>[m_capacity];
+    m_occupys.resize(m_capacity, false);
 }
 
 template<typename K, typename V>
@@ -93,7 +127,7 @@ V& HashMap<K, V>::operator[] (const K& k) {
     const auto hash_code = std::hash<K>{}(k);
     const auto bucket_index = hash_code % m_capacity; 
     auto* bucket = &(m_buckets[bucket_index]);
-    if (! bucket->m_occupied) {
+    if (! m_occupys[bucket_index]) {
         bucket->m_pair.m_value = V();
     } else {
         auto* curr = bucket;
@@ -107,7 +141,7 @@ V& HashMap<K, V>::operator[] (const K& k) {
         bucket = curr;
     }
     bucket->m_pair.m_key = k;
-    bucket->m_occupied = true;
+    m_occupys[bucket_index] = true;
     return bucket->m_pair.m_value;
 }
 
@@ -116,11 +150,31 @@ bool HashMap<K, V>::Erase(const K& k) {
     const auto hash_code = std::hash<K>{}(k);
     const auto bucket_index = hash_code % m_capacity; 
     auto& bucket = m_buckets[bucket_index]; 
-    if (bucket.m_key == k && bucket.m_occupied) {
-        bucket.m_occupied = false;
-        return true;
+    if (! m_occupys[bucket_index]) {
+        return false;
     }
-    
+    if (bucket.m_pair.m_key == k) {
+        if (bucket.m_next == nullptr) {
+            m_occupys[bucket_index] = false;
+        } else {
+            auto* next = bucket.m_next;
+            bucket = *next;
+            delete next;
+        }
+        return true;
+    } else {
+        auto* curr = &bucket;
+        while (curr->m_next && curr->m_next->m_pair.m_key != k) {
+            curr = curr->m_next;
+        }
+        if (curr->m_next) {
+            auto* next = curr->m_next;
+            curr->m_next = next->m_next;
+            delete next;
+            return true;
+        }
+        return false;
+    }
 }
 
 template<typename K, typename V>
@@ -146,6 +200,21 @@ void HashMap<K, V>::ReleaseBuckets(HashNode<K, V>* buckets, int bucket_num) {
         }
     }
     delete[] buckets;
+}
+
+template<typename K, typename V>
+HashMapIterator<K, V> HashMap<K, V>::begin() {
+    // return {m}
+    int i = 0;
+    for (; i < m_capacity; ++i) {
+        if (m_occupys[i]) break;
+    }
+    return { m_buckets + i, i + 1, this };
+}
+
+template<typename K, typename V>
+HashMapIterator<K, V> HashMap<K, V>::end() {
+    return { nullptr, m_capacity, this };
 }
 
 // --------------------------------------

@@ -4,12 +4,26 @@
 
 void testHashMap() {
     HashMap<int, float> h;
-    for (auto i = 0; i < 200; ++i) {
+    for (auto i = 0; i < 100; ++i) {
         h[i] = (i + 1.2f);
     }
-    for (auto i = 0; i < 200; ++i) {
-        std::cout << h[i] << " ";
+    for (auto it = h.begin(); it != h.end(); ++it) {
+        std::cout << (*it).m_value << " ";
     }
+
+    // for (auto i = 0; i < 100; ++i) {
+    //     std::cout << h[i] << " ";
+    // }
+    std::cout << std::endl;
+    for (int i = 1; i < 55; i += 2) {
+        h.Erase(i);
+    }
+    for(auto& kv : h) {
+        std::cout << kv.m_value << " ";
+    }
+    // for (auto i = 0; i < 100; ++i) {
+    //     std::cout << h[i] << " ";
+    // }
 }
 
 int main() {
