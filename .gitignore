@@ -3,5 +3,7 @@
 *.obj
 *.swp
 *.log
+*.pdb
+*.ilk
 .vscode/
 build/
