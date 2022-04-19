@@ -1,9 +1,10 @@
 #include <vector>
 #include <type_traits>
-// #include <list>
-// #include <string>
 
-// using std::cout;
+#define PAGE_SIZE 4096
+// #include <string>
+#include <iostream>
+
 
 template<typename T>
 class PooledObjectBase;
@@ -14,7 +15,7 @@ private:
     ObjectPool(int capacity)
         : m_capacity(capacity)
     {
-        static_assert(std::is_base_of<PooledObjectBase<T>, T>::value);
+        // static_assert(std::is_base_of<PooledObjectBase<T>, T>::value);
         auto* data = (T*) ::operator new (capacity * sizeof(T));
         m_ptrs.resize(capacity);
         for (int i = 0; i < capacity; i ++) {
@@ -32,11 +33,25 @@ private:
             m_ptrs.push_back(data + i);
         }
         m_pooled_memories.push_back(data);
+
+        // std::cout << "enlarge" << std::endl;
     }
+
+    static constexpr int GetCapacity() {
+        if constexpr (sizeof(T) <= 128) return PAGE_SIZE / sizeof(T);
+        return 512;
+    }
+
 public:
 
     static ObjectPool<T>& GetInstance() {
-        static ObjectPool<T> inst(512);
+        constexpr int capacity = GetCapacity();
+        // constexpr int capacity = 512;
+        // if constexpr (sizeof(T) <= 128) {
+        //     capacity = PAGE_SIZE / sizeof(T);
+        // }
+        // constexpr int capacity = PAGE_SIZE / 
+        static ObjectPool<T> inst(capacity);
         return inst;
     }
 
@@ -58,6 +73,10 @@ public:
 
     void Release(T* o) {
         m_ptrs.push_back(o);
+    }
+
+    int TotalCapacity() const {
+        return m_capacity * m_pooled_memories.size();
     }
 
 private:
