@@ -5,5 +5,7 @@
 *.log
 *.pdb
 *.ilk
+*.pyc
+TODO.md
 .vscode/
 build/
