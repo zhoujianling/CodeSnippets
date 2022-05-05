@@ -28,10 +28,10 @@ struct Vector {
 template<typename T>
 struct Vector2 : public Vector<T, 2> {
 
-    Vector3(T x, T y) 
+    Vector2(T x, T y) 
     {
-        m_vals[0] = x;
-        m_vals[1] = y;
+        Vector<T, 2>::m_vals[0] = x;
+        Vector<T, 2>::m_vals[1] = y;
     }
 
     // Vector3<T> Cross(const Vector3<T>& rhs);
