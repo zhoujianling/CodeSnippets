@@ -29,6 +29,31 @@ function test_metatable()
     end
 end
 
-test_metatable()
+function test_mockClass()
+--     我认为Lua就是天生支持成员函数语法的，即`function 表名:函数名() end` ，且支持在成员函数中引用表的成员的。
+--     这里关键的问题在于：类和对象，是两个概念。Lua这里**缺乏的能力是“把表看做一个类，并将其实例化**”。 
+--     所以需要模拟的工作是:实现一个假的类构造函数，Copy当前类表作为实例，并通过metatable重新绑定新的实例的函数调用。
+    local Circle = {
+        radius=3.0
+    }
+    function Circle:new()
+        -- mock class constructor
+        local inst = {}
+        setmetatable(inst, {__index=self})
+        inst.radius = self.radius
+        return inst
+    end
+    function Circle:area()
+       return self.radius * self.radius 
+    end
+
+    local c = Circle:new()
+    c.radius = 5.0
+    print(c:area())
+end
+
+-- use metable to add operator+ for table
+-- test_metatable()
+test_mockClass()
 
 -- D:\Softwares\lua\lua54.exe Coroutine.lua  
